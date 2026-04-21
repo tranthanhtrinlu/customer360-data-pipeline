@@ -14,8 +14,7 @@ The system processes search data across multiple months (June & July) to:
 ## 🏗️ Pipeline
 
 ### 🔹 Final Output
-
-mart_customer360_profile.csv
+`mart_customer360_profile.csv`
 
 ---
 
@@ -38,31 +37,40 @@ mart_customer360_profile.csv
 ---
 
 ## 🔄 Run Order
-
 ```bash
 python jobs/search_monthly_intent.py
 python jobs/apply_keyword_mapping.py
 python jobs/content_profile_etl.py
 python jobs/build_customer360_profile.py
 
-📸 Screenshots
-🔹 Search Trend Output
+### 🔹 Search Trend Output
+![Search Trend Output](docs/search-trend-output.png)
 
-🔹 Customer360 Output
+### 🔹 Customer360 Output
+![Customer360 Output](docs/customer360-output.png)
 
-🔹 Pipeline Run
+### 🔹 Pipeline Run
+![Pipeline Run](docs/run-success.png)
 
-🔹 Architecture
+### 🔹 Architecture
+![Architecture](docs/architecture.png)
 
 🧠 Key Features
 Cleaned noisy search keywords (Vietnamese text normalization)
+
 Extracted top monthly search intent per user
+
 Mapped search terms into business categories
+
 Detected user behavior changes between months
+
 Engineered content profile features:
 most_watch_type
+
 taste_profile
+
 activity_level
+
 active_days
 Built a final customer-level Customer360 analytics mart
 
@@ -108,20 +116,23 @@ python jobs/build_customer360_profile.py
 📈 Example Insights
 Detect users changing interest from:
 Anime → Phim Hàn Quốc
+
 Giải trí → Tâm linh
+
 Identify stable vs changing users
 Segment users based on search behavior
 
 💼 Resume Highlights
+
 Built end-to-end Customer360 ETL pipeline using PySpark
 Processed and cleaned large-scale search logs
 Designed keyword classification & category mapping system
 Detected user behavior change across time
 Developed customer-level analytics dataset for business insights
 
-📎 Author
-Data Engineer (Entry Level)
-Focus: Big Data / ETL / Data Pipeline
+## 📎 Author
+**Trần Thanh Trí** *Data Engineer (Entry Level)*
 
-
-
+- **Focus:** Big Data / ETL / Data Pipeline
+- **LinkedIn:** [linkedin.com/in/tranthanh-tri](https://linkedin.com/in/thanhtri0909) 
+- **Email:** tranthanhtri0147@example.com
