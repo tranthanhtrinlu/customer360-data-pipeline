@@ -1,0 +1,18 @@
+# Customer360 Delta Lakehouse - dependencies
+#
+# IMPORTANT: pyspark and delta-spark versions must be compatible.
+#   PySpark 3.5.x  <->  delta-spark 3.2.x / 3.3.x
+# Compatibility table: https://docs.delta.io/latest/releases.html
+
+pyspark==3.5.1
+delta-spark==3.2.0
+
+# For export / helper processing
+pandas>=2.0
+openpyxl>=3.1
+pyarrow
+
+# (Optional) push mart to MySQL - needs JDBC driver at Spark runtime:
+#   --packages mysql:mysql-connector-java:8.0.33
+
+
