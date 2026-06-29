@@ -1,15 +1,13 @@
-# Customer360 ETL Data Lakehouse — Tài liệu trình bày phỏng vấn
+# Customer360 ETL Data Lakehouse — Tài liệu
 
-> Mục tiêu của tài liệu: giúp bạn trình bày project từ A→Z ở **mức công nghệ và cơ chế**, không cần đụng tới class/hàm/code. Người nghe dù không biết lập trình vẫn hiểu bạn làm gì, ra kết quả gì, tại sao chọn cách đó.
+> Mục tiêu của tài liệu: giúp bạn trình bày project từ A→Z ở **mức công nghệ và cơ chế**
 > Bản này đã cập nhật theo kiến trúc **Data Lakehouse** mới: dùng **Delta Lake** theo **Medallion (Bronze–Silver–Gold)**, có cả **batch** lẫn **streaming near-realtime**.
 
 ---
 
-## 0. Elevator pitch — nói trong 45 giây
+## 0. Elevator pitch
 
-> "Em xây một **ETL data lakehouse** để dựng **chân dung khách hàng 360 độ (Customer360)** cho một nền tảng truyền hình/giải trí số. Hệ thống lấy hai nguồn hành vi thô — **log tìm kiếm** và **log xem nội dung** — làm sạch, chuẩn hóa rồi tổng hợp thành một bảng duy nhất mô tả mỗi khách: họ **tìm gì**, **xem gì**, **sở thích có đổi theo thời gian không**, **hoạt động mạnh hay yếu**. Em dùng **PySpark** làm engine và **Delta Lake** làm định dạng bảng, tổ chức dữ liệu theo **Bronze–Silver–Gold (Medallion)**. Nhờ Delta, pipeline có **ACID, cập nhật incremental bằng MERGE/upsert, time-travel**, và dùng **chung một bảng cho cả batch lẫn streaming**. Hệ thống chạy **batch** là chính, kèm một luồng **streaming near-realtime** để nạp log mới liên tục. Đầu ra là các data mart (Delta + export CSV) cho BI và marketing dùng để phân khúc khách và gợi ý nội dung."
-
-Đó là phần mở đầu. Phần dưới là toàn bộ chi tiết để bạn đào sâu khi bị hỏi tiếp.
+> "Xây một **ETL data lakehouse** để dựng **chân dung khách hàng 360 độ (Customer360)** cho một nền tảng truyền hình/giải trí số. Hệ thống lấy hai nguồn hành vi thô — **log tìm kiếm** và **log xem nội dung** — làm sạch, chuẩn hóa rồi tổng hợp thành một bảng duy nhất mô tả mỗi khách: họ **tìm gì**, **xem gì**, **sở thích có đổi theo thời gian không**, **hoạt động mạnh hay yếu**. Em dùng **PySpark** làm engine và **Delta Lake** làm định dạng bảng, tổ chức dữ liệu theo **Bronze–Silver–Gold (Medallion)**. Nhờ Delta, pipeline có **ACID, cập nhật incremental bằng MERGE/upsert, time-travel**, và dùng **chung một bảng cho cả batch lẫn streaming**. Hệ thống chạy **batch** là chính, kèm một luồng **streaming near-realtime** để nạp log mới liên tục. Đầu ra là các data mart (Delta + export CSV) cho BI và marketing dùng để phân khúc khách và gợi ý nội dung."
 
 ---
 
@@ -35,7 +33,7 @@
 
 ## 2. Bức tranh kiến trúc — Lakehouse theo Medallion (Bronze–Silver–Gold)
 
-Đây là "xương sống" của project và là thứ nên vẽ ra giấy/bảng khi phỏng vấn.
+Đây là "xương sống" của project.
 
 ```
                  ┌──────────────── RAW (nguồn) ────────────────┐
@@ -287,113 +285,3 @@ Mỗi dòng bảng cuối là **một khách hàng**:
 - Bảng tóm tắt chuyển dịch cho thấy **dòng chảy thị hiếu của cả tệp** → định hướng mua bản quyền.
 
 **Nhờ Delta, còn có thể:** xem lại bảng tháng trước bằng **time travel** để so sánh, và audit lịch sử thay đổi (`DESCRIBE HISTORY`).
-
----
-
-## 7. Hạn chế đã biết & cách trả lời thẳng thắn
-
-Chủ động nêu trước = ghi điểm trung thực và tư duy phản biện.
-
-**1. Phần content trong file cuối đang trống (NULL).**
-> "Bridge table `user_id ↔ contract` trong demo mới có vài dòng mẫu, trong khi search có hàng nghìn user. Hai nguồn dùng khóa định danh khác nhau, không có ánh xạ đầy đủ thì left join trả content rỗng. Đây chính là bài toán **identity resolution**; để đúng dữ liệu hoàn toàn cần bảng ánh xạ thật từ CRM/billing. Em thiết kế kiến trúc đúng để khi có bridge đầy đủ là ra kết quả ngay, nhưng thành thật là phần ghép content hiện mới ở mức khung."
-
-**2. Khoảng thời gian hai nguồn không khớp.**
-> "Search là T6–T7, content là đầu tháng 4 — dữ liệu mẫu nên thời gian chưa đồng bộ. Thực tế cần cùng cửa sổ thời gian để hồ sơ nhất quán."
-
-**3. Chạy single-node, chưa thật sự phân tán.**
-> "Spark chạy local một máy nên chưa khai thác cụm. Nhưng code chuẩn DataFrame nên chuyển sang YARN/K8s/Databricks chỉ là đổi cấu hình, không viết lại logic."
-
-**4. Streaming là near-realtime, chưa có Kafka.**
-> "Luồng streaming hiện dùng file-source (thư mục landing) và xử lý micro-batch độ trễ giây — đủ cho Customer360 nhưng chưa phải realtime từng-bản-ghi. Để realtime thật cần thêm **Kafka** trước landing. Ngoài ra `month_label` của luồng streaming lấy theo ngày hiện tại nên dữ liệu stream demo không tự rơi vào phân tích T6/T7 — nó minh họa khả năng nạp tươi, không thay thế batch."
-
-**5. UDF phân loại — chậm trên dữ liệu lớn.**
-> "UDF tiện cho logic văn bản nhưng là hộp đen với Catalyst và tốn chi phí Python↔JVM. Cải tiến: broadcast join bảng mapping hoặc pandas UDF."
-
-**6. Export CSV bằng `coalesce(1)`.**
-> "Em export một file CSV duy nhất cho tiện chia sẻ BI, việc này gom dữ liệu về một máy — chỉ an toàn vì gold đã tổng hợp nhỏ. Bản thân lakehouse vẫn lưu Delta multi-part; với khối lượng lớn em bỏ bước ép một file và để BI đọc thẳng Delta hoặc qua warehouse."
-
-**7. Điều phối còn thủ công.**
-> "7 bước batch chạy qua một orchestrator script, vẫn là kích hoạt tay. Bước tiếp theo là **Airflow** để lập lịch, quản lý phụ thuộc, retry và cảnh báo."
-
----
-
-## 8. Ngân hàng câu hỏi phỏng vấn + câu trả lời mẫu (spoken)
-
-**Q: ETL ở đây là gì, mô tả ngắn gọn?**
-> "Extract — đọc log thô search (Parquet) và content (JSON) vào tầng Bronze (Delta). Transform — làm sạch ở Silver, rồi tổng hợp ở Gold: top search, gán category, pivot thời lượng, ghép qua bridge. Load — ghi các data mart dạng bảng Delta (kèm export CSV), tùy chọn nạp MySQL để phục vụ truy vấn."
-
-**Q: Đây là data warehouse hay data lakehouse?**
-> "**Lakehouse**. Dữ liệu lưu dạng file (Delta) trên storage rẻ theo medallion, schema-on-read, xử lý bằng Spark — đó là lake. Nhưng nhờ Delta có ACID, upsert, time-travel như warehouse — nên gọi là **lakehouse**: gộp ưu điểm của cả hai. MySQL chỉ là lớp serving tùy chọn ở cuối, không phải nơi xử lý chính."
-
-**Q: Tại sao Delta Lake chứ không để Parquet thuần như bản trước?**
-> "Parquet thuần không có giao dịch: job chết giữa chừng để lại file hỏng, muốn cập nhật phải ghi đè cả bảng, không có lịch sử phiên bản. Delta thêm transaction log nên có ACID, **MERGE/upsert incremental**, time-travel, và cho phép dùng **cùng một bảng cho batch lẫn streaming** — đó là điều kiện để có near-realtime."
-
-**Q: Batch hay streaming? Tại sao?**
-> "**Chủ yếu batch**, có thêm **streaming near-realtime**. Customer360 nhìn theo chu kỳ tháng/tuần nên batch vừa đơn giản vừa tiết kiệm; em dùng MERGE để batch chạy incremental. Luồng streaming (Structured Streaming, file-source) để minh họa nạp log mới liên tục độ trễ giây. Cần realtime thật thì thêm Kafka."
-
-**Q: MERGE/upsert là gì, để làm gì?**
-> "Là ghi 'có thì sửa, chưa có thì thêm' theo khóa — như cập nhật danh bạ, không xóa rồi nhập lại. Nhờ nó pipeline chạy **incremental** (chỉ động phần đổi) và **idempotent** (chạy lại không nhân đôi)."
-
-**Q: Tại sao chia Bronze–Silver–Gold?**
-> "Tách bạch trách nhiệm, dễ truy vết lỗi, tái sử dụng. Silver sạch một lần nuôi nhiều bài Gold. Sai thì lần ngược từng tầng để khoanh vùng."
-
-**Q: Xử lý dữ liệu bẩn thế nào?**
-> "Phần lớn công sức ở làm sạch từ khóa: chuẩn hóa chữ thường, gỡ URL/ký tự lạ nhưng giữ tiếng Việt có dấu, loại từ quá ngắn/toàn số/từ rác, đặt ngưỡng tần suất tối thiểu để bỏ nhiễu. Rác-vào-rác-ra nên em đầu tư mạnh khâu này, đặt ở tầng Silver."
-
-**Q: Vì sao join T6–T7 dùng inner, còn Customer360 dùng left?**
-> "Inner ở bước so sánh sở thích vì *cần* user có mặt cả hai tháng mới so được thay đổi. Left ở bước hợp nhất vì *muốn giữ* mọi khách có dữ liệu tìm kiếm, kể cả chưa ghép được content."
-
-**Q: Window function khác group by?**
-> "Group by gộp nhóm, mất chi tiết dòng, chỉ trả con số tổng hợp. Window giữ nguyên dòng nhưng tính *trong từng khung* — nhờ đó lấy được 'dòng quán quân kèm đủ thông tin' cho mỗi user-tháng."
-
-**Q: Time travel của Delta dùng khi nào?**
-> "Audit và rollback: so sánh hồ sơ khách giữa hai lần chạy, hoặc khôi phục về phiên bản tốt khi một lần chạy lỗi làm hỏng dữ liệu — `VERSION AS OF` / `DESCRIBE HISTORY`."
-
-**Q: Nếu dữ liệu tăng 100 lần thì sao?**
-> "Mở rộng Spark ra cụm. Bỏ nút thắt single-node: thay UDF bằng broadcast join, bỏ `coalesce(1)`/export một file, phân vùng theo ngày/tháng, dùng `OPTIMIZE` nén file nhỏ của Delta, và đưa Airflow vào điều phối."
-
-**Q: Làm sao đảm bảo chạy lại không nhân đôi (idempotency)?**
-> "Gold dùng **MERGE theo khóa** nên chạy lại cùng input cho cùng kết quả, không cộng dồn. Streaming dùng **checkpoint** đảm bảo exactly-once, không nạp lại file đã xử lý."
-
-**Q: most_watch_type và taste_profile khác nhau ở đâu?**
-> "most_watch_type là loại *xem nhiều nhất* (một giá trị, theo tổng thời lượng). taste_profile là *toàn bộ khẩu vị* — mọi loại từng xem. Một người most_watch là Phim Truyện nhưng taste có thể 'Phim Truyện-Thể Thao-Thiếu Nhi'."
-
-**Q: Bridge table để làm gì và rủi ro?**
-> "Nối hai hệ định danh — user_id (search) với contract (content). Rủi ro: ánh xạ thiếu/sai thì mất khách hoặc ghép nhầm. Đây là identity resolution, cần nguồn ánh xạ tin cậy từ CRM/billing trong thực tế."
-
----
-
-## 9. Kịch bản nói (script) ~3 phút để mở đầu
-
-> "Em xin trình bày project **Customer360 ETL Data Lakehouse**. Bối cảnh là một nền tảng truyền hình/giải trí số, có hai nguồn hành vi: log **tìm kiếm** và log **xem nội dung**. Mục tiêu là dựng **một hồ sơ thống nhất cho mỗi khách** để phục vụ phân khúc và gợi ý nội dung.
->
-> Em tổ chức dữ liệu theo **Medallion ba tầng** và lưu bằng **Delta Lake**: tầng **Bronze** giữ log thô; **Silver** là dữ liệu đã làm sạch, chuẩn hóa; **Gold** là các bảng phân tích sẵn dùng. Điểm cốt lõi là cả ba tầng đều là bảng Delta — nên hệ thống có **ACID, cập nhật incremental bằng MERGE, time-travel**, và dùng **chung một bảng cho cả batch lẫn streaming**. Đây là điều biến nó thành **lakehouse đúng nghĩa** chứ không chỉ là một pipeline Parquet thông thường.
->
-> Engine xử lý là **PySpark** — em chọn vì log hành vi có thể rất lớn, vượt khả năng một máy; Spark chia nhỏ dữ liệu, xử lý song song, tối ưu kế hoạch nhờ tính toán trì hoãn.
->
-> Pipeline chính chạy **batch** qua bảy bước bronze→silver→gold. Tóm tắt: làm sạch log tìm kiếm và rút **từ khóa top mỗi khách theo tháng 6 và tháng 7**; **gán danh mục** và tạo tín hiệu cho thấy **sở thích có dịch chuyển không** — ví dụ Anime sang Phim Hàn; từ log xem, tổng hợp **thời lượng theo loại nội dung** để biết **xem gì nhiều, khẩu vị ra sao, hoạt động mạnh hay yếu**; cuối cùng **ghép hai nhánh** qua một **bridge table** nối định danh, ra **bảng Customer360**. Các bảng Gold được cập nhật bằng **MERGE/upsert** nên chạy lại chỉ động vào phần thay đổi.
->
-> Ngoài batch, em có một luồng **streaming near-realtime**: Spark Structured Streaming theo dõi thư mục landing, có log parquet mới là tự nạp vào Bronze rồi làm sạch sang Silver, độ trễ cỡ giây.
->
-> Kết quả là mỗi khách có một dòng mô tả đầy đủ: tìm gì, thể loại nào, sở thích có đổi không, xem gì và hoạt động ra sao — business dùng để phân nhóm, gợi ý nội dung, phát hiện nguy cơ rời bỏ.
->
-> Em cũng xin nói thẳng **giới hạn hiện tại**: bridge table mới ở mức mẫu nên phần ghép content chưa đầy đủ; chạy single-node; streaming dùng file-source chưa có Kafka; điều phối còn thủ công. Hướng phát triển: hoàn thiện bảng ánh xạ định danh, thay UDF bằng broadcast join, thêm Kafka cho realtime thật, và đưa **Airflow** vào tự động điều phối."
-
----
-
-### Phụ lục — bảng tra cứu nhanh "công nghệ → một câu chốt"
-
-| Công nghệ | Một câu để chốt khi bị hỏi |
-|-----------|----------------------------|
-| **PySpark** | Engine xử lý phân tán, chia nhỏ chạy song song, tính toán trì hoãn để tối ưu. |
-| **Delta Lake** | Parquet + transaction log → ACID, MERGE/upsert, time-travel, batch+streaming chung một bảng. Biến lake thành lakehouse. |
-| **Structured Streaming** | Băng chuyền micro-batch độ trễ giây, checkpoint cho exactly-once → near-realtime. |
-| **Parquet** | Lưu theo cột, nén tốt, giữ schema; là lớp file nằm dưới Delta. |
-| **JSON** | Định dạng gốc của content log, lồng nhau; thô để JSON, sạch chuyển sang Delta. |
-| **Medallion** | Ba tầng Bronze/Silver/Gold để tách bạch, truy vết và tái sử dụng. |
-| **MERGE/upsert** | "Có thì sửa, chưa có thì thêm" theo khóa → incremental + idempotent. |
-| **Window function** | Lấy "top-1 mỗi nhóm kèm đủ thông tin", thứ group by không làm trực tiếp được. |
-| **UDF** | Logic phân loại text phức tạp; tradeoff là chậm, nên thay bằng broadcast join. |
-| **Bridge table** | Giải identity resolution — nối user_id (search) với contract (content). |
-| **CSV export / MySQL** | Lớp phục vụ: CSV cho BI đọc nhanh; MySQL cho app truy vấn theo khóa. |
-| **Orchestrator → Airflow** | Hiện là script điều phối 7 bước; định hướng Airflow để lập lịch, retry, cảnh báo. |
